@@ -3,7 +3,7 @@ LaJSON is a pure python JSON parser. To be honest, it is an result of coincidenc
 while learning those compiler things.
 
 ##How to use
-```
+``` python
 >>> from la_json import parse
 >>> parse('{"A": ["B": true]}')
 {'A': ['B': True]}
