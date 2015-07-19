@@ -5,10 +5,10 @@
 The parser.
 """
 
-__author__ = 'Nb'
+__author__ = 'Nb<k.memo@live.cn>'
 
-from la_json._util import Stack, JSONSyntaxError
-from la_json._elements import JSONObject, JSONArray, JSONKVPair, Undefined, JSONIdentifier
+from ._util import Stack, JSONSyntaxError, PY_FLOAT_NAN
+from ._elements import JSONObject, JSONArray, JSONKVPair, Undefined, JSONIdentifier
 
 
 class States:
@@ -40,12 +40,23 @@ class Parser:
 
     element_set = (JSONObject, JSONArray)
 
-    def __init__(self, io_object):
-        """Initialise the parser from a readable I/O object."""
-        self._source = io_object
+    def __init__(self, source_string, allow_nan=False, convert_nan_to=PY_FLOAT_NAN, allow_inf=False):
+        """
+        Initialise the parser from source string.
+
+        :param allow_nan: when set to True, NaN would
+            be converted to convert_nan_to, by default
+            PY_FLOAT_NAN
+        :param convert_nan_to: what to convert NaN to
+        :param allow_inf: when set to True, Inf and
+            -Inf would be converted to corresponding
+            python floating point number
+        """
+        self._source = source_string
         self.__pos = -1
         self.__line_no = 1
         self.__char_no = 0
+        self._allow_nan, self._convert_nan_to, self._allow_inf = allow_nan, convert_nan_to, allow_inf
 
     def get_char(self, move_cursor=False):
         """Get next char from source string."""
@@ -80,6 +91,9 @@ class Parser:
 
         # whether to move cursor
         _MOVE_CURSOR = True
+
+        # whether to preserve raw char
+        _PRESERVE_RAW = False
 
         # the core state machine
         while True:
@@ -138,7 +152,14 @@ class Parser:
             # and turn to OBJECT_COLON.
             # _IGNORE_SPACE is set to True thus.
             elif _STATE == States.OBJECT_KEY:
+                if _PRESERVE_RAW:
+                    char_pool.append(char)
+                    _PRESERVE_RAW = False
+                    continue
                 if char != '"':
+                    if char == '\\' and not _PRESERVE_RAW:
+                        _PRESERVE_RAW = True
+                        continue
                     char_pool.append(char)
                 else:
                     kv_pair = JSONKVPair()
@@ -181,12 +202,19 @@ class Parser:
             # and turns to OBJECT_EXIT.
             # _IGNORE_SPACE is set to True afterwards.
             elif _STATE == States.OBJECT_VALUE_STRING:
+                if _PRESERVE_RAW:
+                    char_pool.append(char)
+                    _PRESERVE_RAW = False
+                    continue
                 if char == '"':
                     content_stack.peek().value = ''.join(char_pool)
                     char_pool = []
                     _STATE = States.OBJECT_EXIT
                     _IGNORE_SPACE = True
                 else:
+                    if char == '\\' and not _PRESERVE_RAW:
+                        _PRESERVE_RAW = True
+                        continue
                     char_pool.append(char)
 
             # OBJECT_VALUE_IDENTIFIER expects an identifier or a number.
@@ -199,7 +227,24 @@ class Parser:
                 else:
                     raw_identifier_string = ''.join(char_pool)
                     char_pool = []
-                    if raw_identifier_string not in JSONIdentifier.SET:
+                    if raw_identifier_string in JSONIdentifier.IDENTIFIER_SET:
+                        content_stack.peek().value = JSONIdentifier.IDENTIFIER_TO_PYTHON_DICT[raw_identifier_string]
+                    elif raw_identifier_string.lower() in JSONIdentifier.EXTENDED_FLOAT:
+                        raw_identifier_string = raw_identifier_string.lower()
+                        if raw_identifier_string == 'nan':
+                            if self._allow_nan:
+                                content_stack.peek().value = self._convert_nan_to
+                            else:
+                                raise JSONSyntaxError(char, self.__line_no, self.__char_no,
+                                                      'JSON standard does not include NaN')
+                        else:
+                            if self._allow_inf:
+                                content_stack.peek().value = \
+                                    JSONIdentifier.EXTENDED_FLOAT_TO_PYTHON_DICT[raw_identifier_string]
+                            else:
+                                raise JSONSyntaxError(char, self.__line_no, self.__char_no,
+                                                      'JSON standard does not include Inf')
+                    else:
                         try:
                             number = int(raw_identifier_string)
                         except ValueError:
@@ -209,8 +254,6 @@ class Parser:
                                 raise JSONSyntaxError(char, self.__line_no, self.__char_no,
                                                       'Unknown identifier *%s*' % raw_identifier_string)
                         content_stack.peek().value = number
-                    else:
-                        content_stack.peek().value = JSONIdentifier.TO_PYTHON_DICT[raw_identifier_string]
                     _STATE = States.OBJECT_EXIT
                     _MOVE_CURSOR = False
 
@@ -290,6 +333,10 @@ class Parser:
             # created and pushed to content stack. Then it turns to
             # ARRAY_EXIT.
             elif _STATE == States.ARRAY_STRING:
+                if _PRESERVE_RAW:
+                    char_pool.append(char)
+                    _PRESERVE_RAW = False
+                    continue
                 if char == '"':
                     string = ''.join(char_pool)
                     content_stack.push(string)
@@ -297,6 +344,9 @@ class Parser:
                     _STATE = States.ARRAY_EXIT
                     _IGNORE_SPACE = True
                 else:
+                    if char == '\\' and not _PRESERVE_RAW:
+                        _PRESERVE_RAW = True
+                        continue
                     char_pool.append(char)
 
             # ARRAY_IDENTIFIER expects an identifier or a number.
@@ -309,7 +359,25 @@ class Parser:
                 else:
                     raw_identifier_string = ''.join(char_pool)
                     char_pool = []
-                    if raw_identifier_string not in JSONIdentifier.SET:
+                    if raw_identifier_string in JSONIdentifier.IDENTIFIER_SET:
+                        content_stack.push(JSONIdentifier.IDENTIFIER_TO_PYTHON_DICT[raw_identifier_string])
+                    elif raw_identifier_string.lower() in JSONIdentifier.EXTENDED_FLOAT:
+                        raw_identifier_string = raw_identifier_string.lower()
+                        if raw_identifier_string == 'nan':
+                            if self._allow_nan:
+                                content_stack.push(self._convert_nan_to)
+                            else:
+                                raise JSONSyntaxError(char, self.__line_no, self.__char_no,
+                                                      'JSON standard does not include NaN')
+                        else:
+                            if self._allow_inf:
+                                content_stack.push(
+                                    JSONIdentifier.EXTENDED_FLOAT_TO_PYTHON_DICT[raw_identifier_string]
+                                )
+                            else:
+                                raise JSONSyntaxError(char, self.__line_no, self.__char_no,
+                                                      'JSON standard does not include Inf')
+                    else:
                         try:
                             number = int(raw_identifier_string)
                         except ValueError:
@@ -319,8 +387,6 @@ class Parser:
                                 raise JSONSyntaxError(char, self.__line_no, self.__char_no,
                                                       'Unknown identifier *%s*' % raw_identifier_string)
                         content_stack.push(number)
-                    else:
-                        content_stack.push(JSONIdentifier.TO_PYTHON_DICT[raw_identifier_string])
                     _STATE = States.ARRAY_EXIT
                     _MOVE_CURSOR = False
 
@@ -363,7 +429,17 @@ class Parser:
                         return array_
                 else:
                     raise JSONSyntaxError(char, self.__line_no, self.__char_no,
-                                          'Invalid end character for object')
+                                          'Invalid end character for array')
             else:
                 raise JSONSyntaxError(char, self.__line_no, self.__char_no,
                                       'Unknown state *%s*' % _STATE)
+
+    @staticmethod
+    def from_python(python_dict_or_list):
+        """Parse a python dict or list to JSONObject or JSONArray."""
+        if isinstance(python_dict_or_list, dict):
+            return JSONObject.from_python(python_dict_or_list)
+        elif isinstance(python_dict_or_list, list):
+            return JSONArray.from_python(python_dict_or_list)
+        else:
+            raise TypeError('Can only parse from python dict or list')

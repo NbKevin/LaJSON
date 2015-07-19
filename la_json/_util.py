@@ -68,3 +68,24 @@ class JSONSyntaxError(SyntaxError):
     def __init__(self, char: str, line_no: int, char_no: int, message=None):
         self.msg = 'Error parsing *%s* at line %s, column %s: %s' % \
                    (char, line_no, char_no, message if message is not None else '')
+        # On python 3.3 or higher, when __cause__ is set to
+        # None, the context of exception would be suppressed
+        # when being printed.
+        # See PEP 0409 for more detail.
+        self.__cause__ = None
+
+
+class JSONNonStandardElementError(JSONSyntaxError):
+    def __init__(self, message: str):
+        self.msg = message
+
+
+# extended floating point numbers
+try:
+    PY_FLOAT_INF = float('inf')
+    PY_FLOAT_NEG_INF = float('-inf')
+    PY_FLOAT_NAN = float('NaN')
+except ValueError:
+    error = FloatingPointError('Cannot create IEEE standard floating point Inf and/or NaN')
+    error.__cause__ = None
+    raise error
