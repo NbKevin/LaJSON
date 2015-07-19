@@ -8,7 +8,8 @@ The parser.
 __author__ = 'Kevin'
 
 import unittest
-import _parser
+
+from la_json import _parser
 
 
 class JSONUnitTest(unittest.TestCase):

@@ -7,7 +7,7 @@ Definition of JSON elements.
 
 __author__ = 'Nb'
 
-from _util import Stack
+from la_json._util import Stack
 
 
 class JSONUndefined:

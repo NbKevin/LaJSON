@@ -7,7 +7,7 @@ Shortcut to the JSON parser.
 
 __author__ = 'Nb'
 
-import _parser
+from la_json import _parser
 
 
 def parse(source: str):

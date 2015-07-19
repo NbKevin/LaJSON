@@ -7,8 +7,8 @@ The parser.
 
 __author__ = 'Nb'
 
-from _util import Stack, JSONSyntaxError
-from _elements import JSONObject, JSONArray, JSONKVPair, Undefined, JSONIdentifier
+from la_json._util import Stack, JSONSyntaxError
+from la_json._elements import JSONObject, JSONArray, JSONKVPair, Undefined, JSONIdentifier
 
 
 class States:
