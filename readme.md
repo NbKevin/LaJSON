@@ -21,3 +21,7 @@ allows you to control which value NaN should be converted to since `NaN` is
 not a meaningful number.
 However, `NaN` and `Inf` is not supported during serialisation considering
 that they are not a part of the standard and thus not recommended to be used.
+
+##Licence
+LaJSON is released under Apache License 2.0. See the LICENSE file for more
+information.
