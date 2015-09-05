@@ -58,6 +58,7 @@ class Stack:
             raise StopIteration
 
     def reversed(self):
+        # noinspection PyPep8Naming
         class _:
             """Reversed iterator of the stack."""
 
@@ -79,6 +80,7 @@ class Stack:
 
 
 class JSONSyntaxError(SyntaxError):
+    """JSON syntax error."""
     def __init__(self, char: str, line_no: int, char_no: int, message=None):
         self.msg = 'Error parsing *%s* at line %s, column %s: %s' % \
                    (char, line_no, char_no, message if message is not None else '')
@@ -90,8 +92,14 @@ class JSONSyntaxError(SyntaxError):
 
 
 class JSONNonStandardElementError(JSONSyntaxError):
-    def __init__(self, message: str):
-        self.msg = message
+    """JSON standard includes only a small range of data types.
+    Elements beyond this range is not supported."""
+
+    def __init__(self, char=None, line_no=None, char_no=None, message=None):
+        if char is None and line_no is None and char_no is None:
+            self.msg = message
+        else:
+            super(JSONNonStandardElementError, self).__init__(char, line_no, char_no, message)
 
 
 # extended floating point numbers
@@ -100,6 +108,7 @@ try:
     PY_FLOAT_NEG_INF = float('-inf')
     PY_FLOAT_NAN = float('NaN')
 except ValueError:
-    error = FloatingPointError('Cannot create IEEE standard floating point Inf and/or NaN')
+    error = FloatingPointError('Cannot create IEEE standard floating point Inf and/or NaN on this platform\n'
+                               'Hardware may not be compatible with this software.')
     error.__cause__ = None
     raise error

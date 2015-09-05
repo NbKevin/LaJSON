@@ -21,7 +21,7 @@ The parser.
 
 __author__ = 'Nb<k.memo@live.cn>'
 
-from ._util import Stack, JSONSyntaxError, PY_FLOAT_NAN
+from ._util import Stack, JSONSyntaxError, JSONNonStandardElementError, PY_FLOAT_NAN
 from ._elements import JSONObject, JSONArray, JSONKVPair, Undefined, JSONIdentifier
 
 
@@ -243,21 +243,21 @@ class Parser:
                     char_pool = []
                     if raw_identifier_string in JSONIdentifier.IDENTIFIER_SET:
                         content_stack.peek().value = JSONIdentifier.IDENTIFIER_TO_PYTHON_DICT[raw_identifier_string]
-                    elif raw_identifier_string.lower() in JSONIdentifier.EXTENDED_FLOAT:
+                    elif raw_identifier_string.lower() in JSONIdentifier.EXTENDED_FLOAT_NUMBERS:
                         raw_identifier_string = raw_identifier_string.lower()
                         if raw_identifier_string == 'nan':
                             if self._allow_nan:
                                 content_stack.peek().value = self._convert_nan_to
                             else:
-                                raise JSONSyntaxError(char, self.__line_no, self.__char_no,
-                                                      'JSON standard does not include NaN')
+                                raise JSONNonStandardElementError(char, self.__line_no, self.__char_no,
+                                                                  'JSON standard does not include NaN')
                         else:
                             if self._allow_inf:
                                 content_stack.peek().value = \
-                                    JSONIdentifier.EXTENDED_FLOAT_TO_PYTHON_DICT[raw_identifier_string]
+                                    JSONIdentifier.EXTENDED_FLOAT_NUMBERS_TO_PYTHON[raw_identifier_string]
                             else:
-                                raise JSONSyntaxError(char, self.__line_no, self.__char_no,
-                                                      'JSON standard does not include Inf')
+                                raise JSONNonStandardElementError(char, self.__line_no, self.__char_no,
+                                                                  'JSON standard does not include Inf')
                     else:
                         try:
                             number = int(raw_identifier_string)
@@ -305,7 +305,8 @@ class Parser:
                             _STATE = States.ARRAY_EXIT
                         else:
                             raise JSONSyntaxError(char, self.__line_no, self.__char_no,
-                                                  'Unknown container type in the stack *%s*' % last_container_in_stack)
+                                                  'Unknown container type in the stack *%s*' %
+                                                  last_container_in_stack)
                     else:
                         return object_
                 else:
@@ -375,22 +376,22 @@ class Parser:
                     char_pool = []
                     if raw_identifier_string in JSONIdentifier.IDENTIFIER_SET:
                         content_stack.push(JSONIdentifier.IDENTIFIER_TO_PYTHON_DICT[raw_identifier_string])
-                    elif raw_identifier_string.lower() in JSONIdentifier.EXTENDED_FLOAT:
+                    elif raw_identifier_string.lower() in JSONIdentifier.EXTENDED_FLOAT_NUMBERS:
                         raw_identifier_string = raw_identifier_string.lower()
                         if raw_identifier_string == 'nan':
                             if self._allow_nan:
                                 content_stack.push(self._convert_nan_to)
                             else:
-                                raise JSONSyntaxError(char, self.__line_no, self.__char_no,
-                                                      'JSON standard does not include NaN')
+                                raise JSONNonStandardElementError(char, self.__line_no, self.__char_no,
+                                                                  'JSON standard does not include NaN')
                         else:
                             if self._allow_inf:
                                 content_stack.push(
-                                    JSONIdentifier.EXTENDED_FLOAT_TO_PYTHON_DICT[raw_identifier_string]
+                                    JSONIdentifier.EXTENDED_FLOAT_NUMBERS_TO_PYTHON[raw_identifier_string]
                                 )
                             else:
-                                raise JSONSyntaxError(char, self.__line_no, self.__char_no,
-                                                      'JSON standard does not include Inf')
+                                raise JSONNonStandardElementError(char, self.__line_no, self.__char_no,
+                                                                  'JSON standard does not include Inf')
                     else:
                         try:
                             number = int(raw_identifier_string)
@@ -438,7 +439,8 @@ class Parser:
                             content_stack.push(array_)
                         else:
                             raise JSONSyntaxError(char, self.__line_no, self.__char_no,
-                                                  'Unknown container type in the stack *%s*' % last_container_in_stack)
+                                                  'Unknown container type in the stack *%s*' %
+                                                  last_container_in_stack)
                     else:
                         return array_
                 else:
